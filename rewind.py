@@ -1,6 +1,4 @@
-from multiprocessing import Process, Value, Array
-
-import numpy as np
+from multiprocessing import Process, Value
 import cv2
 
 
@@ -23,7 +21,6 @@ if __name__ == '__main__':
     cap = cv2.VideoCapture(0)
     loopBool = Value('b', True)
     count = Value('d', 0.0)
-    # arr = Array('i', range(10))
 
     p = Process(target=getFramesLoop, args=(count, loopBool))
     p.start()
