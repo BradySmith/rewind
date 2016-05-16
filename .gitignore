@@ -3,6 +3,6 @@
 .fuse*
 
 .idea/
-frames/
-frames/!.gitkeep
-
+frames/*.jpeg
+frames/*.jpg
+frames/*.png
