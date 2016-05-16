@@ -2,6 +2,7 @@
 ._.DS_Store
 .fuse*
 
+.idea/
 frames/
-!/frames/.gitkeep
+frames/!.gitkeep
 
