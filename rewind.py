@@ -1,37 +1,42 @@
-from multiprocessing import Process, Value
-import subprocess
 import cv2
+import subprocess
 
 
-def getFramesLoop(count, loopBool):
-    while loopBool:
-        # Capture frame-by-frame
-        ret, frame = cap.read()
-        count.value = count.value + 1
-        index = count.value
+def getFramesLoop():
+    cap = cv2.VideoCapture(0)
+    index = 0
+    while True:
+        try:
+            ret, frame = cap.read()
+            name = "frames/frame%d.jpg" % index
+            cv2.imwrite(name, frame)
+            index += 1
 
-        name = "frames/frame%d.jpg" % index
-        cv2.imwrite(name, frame)
-        print index
+            # Limit to 10 frame gifs
+            if (index > 10):
+                index = 0
 
-        if (index > 10):
-            loopBool = False
+        except KeyboardInterrupt:
+            break
+
+    return True
 
 
 def makeGif():
-    bashCommand = "convert -background white -alpha remove -layers OptimizePlus -delay 25x100 /home/pi/rewind/frames/frame*.jpg -loop 0 output.gif"
-    process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-    output = process.communicate()[0]
-    print output
+    print "Making gif"
+    try:
+        bashCommand = "convert -background white -alpha remove -layers OptimizePlus -delay 25x100 /home/pi/rewind/frames/frame*.jpg -loop 0 output.gif"
+        process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+        output = process.communicate()[0]
+        print "Finished making gif"
+        return True
+    except KeyboardInterrupt:
+        print "Interrupt dectected. Exiting"
+        return False
 
 
 if __name__ == '__main__':
-    cap = cv2.VideoCapture(0)
-    loopBool = Value('b', True)
-    count = Value('d', 0.0)
-
-    p = Process(target=getFramesLoop, args=(count, loopBool))
-    p.start()
-    p.join()
-
-    makeGif()
+    loop = True
+    while loop:
+        getFramesLoop()
+        loop = makeGif()
