@@ -6,3 +6,5 @@
 frames/*.jpeg
 frames/*.jpg
 frames/*.png
+
+*.gif

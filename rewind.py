@@ -1,4 +1,5 @@
 from multiprocessing import Process, Value
+import subprocess
 import cv2
 
 
@@ -17,6 +18,13 @@ def getFramesLoop(count, loopBool):
             loopBool = False
 
 
+def makeGif():
+    bashCommand = "convert -background white -alpha remove -layers OptimizePlus -delay 25x100 /home/pi/rewind/frames/frame*.jpg -loop 0 output.gif"
+    process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+    output = process.communicate()[0]
+    print output
+
+
 if __name__ == '__main__':
     cap = cv2.VideoCapture(0)
     loopBool = Value('b', True)
@@ -25,3 +33,5 @@ if __name__ == '__main__':
     p = Process(target=getFramesLoop, args=(count, loopBool))
     p.start()
     p.join()
+
+    makeGif()
