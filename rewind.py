@@ -71,7 +71,7 @@ def makeGif():
 
 
 def postGifToSlack():
-    executePipedShellCommand("echo 'Uploading gif. Please hold.'", "slacker -c smashcam -f output.gif")
+    executePipedShellCommand("echo 'Uploading gif. Please hold.'", "slacker -c intersection-gifs -f output.gif")
 
 
 def executeShellCommand(command):

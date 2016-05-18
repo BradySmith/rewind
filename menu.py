@@ -24,7 +24,7 @@ def testImage():
     ret, frame = cap.read()
     cv2.imwrite("test.jpg", frame)
 
-    executePipedShellCommand("echo 'Uploading test image. Please hold.'", "slacker -c smashcam -f test.jpg")
+    executePipedShellCommand("echo 'Uploading test image. Please hold.'", "slacker -c intersection-gifs -f test.jpg")
 
     return redirect("/", code=302)
 
@@ -36,4 +36,4 @@ def executePipedShellCommand(command1, command2):
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0')
-    testImage()
+    # testImage()
