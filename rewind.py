@@ -1,19 +1,38 @@
 import cv2
 import subprocess
+import os, shutil
+
+FRAMES_TO_KEEP = 10
+
+
+def removeAllFilesInFolder(folder):
+    for the_file in os.listdir(folder):
+        file_path = os.path.join(folder, the_file)
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+        except Exception as e:
+            print(e)
 
 
 def getFramesLoop():
+    removeAllFilesInFolder("frames")
     cap = cv2.VideoCapture(0)
     index = 0
     while True:
         try:
+            try:
+                os.remove("frames/frame%d.jpg" % (index - FRAMES_TO_KEEP))
+            except OSError:
+                pass
+
             ret, frame = cap.read()
             name = "frames/frame%d.jpg" % index
             cv2.imwrite(name, frame)
             index += 1
 
-            # Limit to 10 frame gifs
-            if (index > 10):
+            # Reset index when the number gets too big
+            if (index == 100000000):
                 index = 0
 
         except KeyboardInterrupt:
