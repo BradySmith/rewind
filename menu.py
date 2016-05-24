@@ -2,7 +2,7 @@ from flask import Flask, redirect
 import cv2
 import subprocess
 
-FILE_LOCK = "loop.lock"
+FILE_LOCK = "/home/pi/rewind/loop.lock"
 
 app = Flask(__name__)
 
@@ -22,9 +22,9 @@ def takeGif():
 def testImage():
     cap = cv2.VideoCapture(0)
     ret, frame = cap.read()
-    cv2.imwrite("test.jpg", frame)
+    cv2.imwrite("/home/pi/rewind/test.jpg", frame)
 
-    executePipedShellCommand("echo 'Uploading test image. Please hold.'", "slacker -c intersection-gifs -f test.jpg")
+    executePipedShellCommand("echo 'Uploading test image. Please hold.'", "slacker -c intersection-gifs -f /home/pi/rewind/test.jpg")
 
     return redirect("/", code=302)
 

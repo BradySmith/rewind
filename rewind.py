@@ -8,7 +8,7 @@ FRAMES_TO_KEEP_BEFORE = 50
 FRAMES_TO_KEEP_AFTER = 20
 
 FRAME_LOOP = True
-FILE_LOCK = "loop.lock"
+FILE_LOCK = "/home/pi/rewind/loop.lock"
 
 
 def removeAllFilesInFolder(folder):
@@ -23,14 +23,14 @@ def removeAllFilesInFolder(folder):
 
 
 def getFramesLoop():
-    removeAllFilesInFolder("frames")
+    removeAllFilesInFolder("/home/pi/rewind/frames")
     cap = cv2.VideoCapture(0)
     index = 0
     FRAME_LOOP = True
 
     while FRAME_LOOP:
         try:
-            os.remove("frames/frame%d.jpg" % (index - FRAMES_TO_KEEP_BEFORE))
+            os.remove("/home/pi/rewind/frames/frame%d.jpg" % (index - FRAMES_TO_KEEP_BEFORE))
         except OSError:
             pass
 
@@ -52,7 +52,7 @@ def getFramesLoop():
 
 def getFrame(index, cap):
     ret, frame = cap.read()
-    name = "frames/frame%d.jpg" % index
+    name = "/home/pi/rewind/frames/frame%d.jpg" % index
     cv2.imwrite(name, frame)
 
 
@@ -61,7 +61,7 @@ def makeGif():
 
     try:
         executeShellCommand(
-            "convert -delay 15x100 /home/pi/rewind/frames/frame*.jpg -loop 0 output.gif")
+            "convert -delay 15x100 /home/pi/rewind/frames/frame*.jpg -loop 0 /home/pi/rewind/output.gif")
         print "Finished making gif"
         return True
 
@@ -71,7 +71,7 @@ def makeGif():
 
 
 def postGifToSlack():
-    executePipedShellCommand("echo 'Uploading gif. Please hold.'", "slacker -c intersection-gifs -f output.gif")
+    executePipedShellCommand("echo 'Uploading gif. Please hold.'", "slacker -c intersection-gifs -f /home/pi/rewind/output.gif")
 
 
 def executeShellCommand(command):
