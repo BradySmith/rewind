@@ -8,3 +8,5 @@ frames/*.png
 
 *.jpg
 *.gif
+
+loop.lock
