@@ -10,25 +10,31 @@ import (
 	"os/exec"
 	"bytes"
 	"io"
-	"image/gif"
+	"net/http"
+	"log"
+	"sync"
+)
+
+var (
+	frameLoopMutex = &sync.Mutex{}
 )
 
 type FrameSizes []webcam.FrameSize
-const FRAMES_TO_KEEP_BEFORE = 50
+
+//const FRAMES_TO_KEEP_BEFORE = 50
+const FRAMES_TO_KEEP_BEFORE = 20
 const FRAMES_TO_KEEP_AFTER = 20
 
 func (slice FrameSizes) Len() int {
 	return len(slice)
 }
 
-//For sorting purposes
 func (slice FrameSizes) Less(i, j int) bool {
 	ls := slice[i].MaxWidth * slice[i].MaxHeight
 	rs := slice[j].MaxWidth * slice[j].MaxHeight
 	return ls < rs
 }
 
-//For sorting purposes
 func (slice FrameSizes) Swap(i, j int) {
 	slice[i], slice[j] = slice[j], slice[i]
 }
@@ -62,7 +68,7 @@ func UploadToSlack() {
 	io.Copy(os.Stdout, &b2)
 }
 
-func main() {
+func CaptureLoop() {
 	cam, err := webcam.Open("/dev/video0")
 	if err != nil {
 		panic(err.Error())
@@ -75,7 +81,14 @@ func main() {
 		formats = append(formats, f)
 	}
 
-	format := formats[0]
+	// Get Motion-JPEG if it exists.
+	var formatIndex = -1;
+	for i, value := range formats {
+		if (format_desc[value] == "Motion-JPEG") {
+			formatIndex = i
+		}
+	}
+	format := formats[formatIndex]
 	frames := FrameSizes(cam.GetSupportedFrameSizes(format))
 	sort.Sort(frames)
 	size := frames[0]
@@ -94,6 +107,7 @@ func main() {
 	}
 
 	timeout := uint32(5) //5 seconds
+
 	var i = 0
 	for {
 		err = cam.WaitForFrame(timeout)
@@ -109,9 +123,13 @@ func main() {
 
 		frame, err := cam.ReadFrame()
 		if len(frame) != 0 {
-			var name = "/home/pi/rewind/frames/frame" + strconv.Itoa(i) + ".jpg"
+			frameLoopMutex.Lock()
+
+			var newFileName = "/home/pi/rewind/frames/frame" + strconv.Itoa(i) + ".jpg"
+			var fileNameToRemove = "/home/pi/rewind/frames/frame" + strconv.Itoa(i - FRAMES_TO_KEEP_BEFORE) + ".jpg"
+
 			fmt.Println(reflect.TypeOf(frame))
-			fo, err := os.Create(name)
+			fo, err := os.Create(newFileName)
 			if err != nil {
 				panic(err)
 			}
@@ -126,14 +144,39 @@ func main() {
 				}
 			}()
 
-			AddHuffmanTable(name)
+			os.Remove(fileNameToRemove)
+			frameLoopMutex.Unlock()
+
+			AddHuffmanTable(newFileName)
 			i++
-			if i > 5 {
+
+			// Reset number when it gets too big.
+			if i > 100000000 {
 				i = 0
 			}
 
 		} else if err != nil {
 			panic(err.Error())
 		}
+	}
+}
+
+func interruptHandler(w http.ResponseWriter, r *http.Request) {
+	frameLoopMutex.Lock()
+	MakeGif()
+	UploadToSlack()
+	frameLoopMutex.Unlock()
+
+	http.Redirect(w, r, "/", 301)
+}
+
+func main() {
+	// Start taking frames.
+	go CaptureLoop()
+
+	http.HandleFunc("/gif/", interruptHandler)
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		log.Fatal("ListenAndServe:", err)
 	}
 }
