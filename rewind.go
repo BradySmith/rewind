@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/blackjack/webcam"
 	"os"
-	"reflect"
 	"sort"
 	"strconv"
 	"os/exec"
@@ -13,6 +12,8 @@ import (
 	"net/http"
 	"log"
 	"sync"
+	"path/filepath"
+	"time"
 )
 
 var (
@@ -21,9 +22,7 @@ var (
 
 type FrameSizes []webcam.FrameSize
 
-//const FRAMES_TO_KEEP_BEFORE = 50
-const FRAMES_TO_KEEP_BEFORE = 20
-const FRAMES_TO_KEEP_AFTER = 20
+const FRAMES_TO_KEEP = 100
 
 func (slice FrameSizes) Len() int {
 	return len(slice)
@@ -68,6 +67,27 @@ func UploadToSlack() {
 	io.Copy(os.Stdout, &b2)
 }
 
+func RemoveAllFrames() error {
+	var dir = "/home/pi/rewind/frames/"
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	names, err := d.Readdirnames(-1)
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		err = os.RemoveAll(filepath.Join(dir, name))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func CaptureLoop() {
 	cam, err := webcam.Open("/dev/video0")
 	if err != nil {
@@ -91,7 +111,10 @@ func CaptureLoop() {
 	format := formats[formatIndex]
 	frames := FrameSizes(cam.GetSupportedFrameSizes(format))
 	sort.Sort(frames)
-	size := frames[0]
+	for i, value := range frames {
+		fmt.Fprintf(os.Stderr, "[%d] %s\n", i+1, value.GetString())
+	}
+	size := frames[4]
 
 	f, w, h, err := cam.SetImageFormat(format, uint32(size.MaxWidth), uint32(size.MaxHeight))
 
@@ -126,9 +149,8 @@ func CaptureLoop() {
 			frameLoopMutex.Lock()
 
 			var newFileName = "/home/pi/rewind/frames/frame" + strconv.Itoa(i) + ".jpg"
-			var fileNameToRemove = "/home/pi/rewind/frames/frame" + strconv.Itoa(i - FRAMES_TO_KEEP_BEFORE) + ".jpg"
+			var fileNameToRemove = "/home/pi/rewind/frames/frame" + strconv.Itoa(i - FRAMES_TO_KEEP) + ".jpg"
 
-			fmt.Println(reflect.TypeOf(frame))
 			fo, err := os.Create(newFileName)
 			if err != nil {
 				panic(err)
@@ -162,15 +184,21 @@ func CaptureLoop() {
 }
 
 func interruptHandler(w http.ResponseWriter, r *http.Request) {
+	time.Sleep(time.Second * 3)
+
+	fmt.Println("/gif")
 	frameLoopMutex.Lock()
 	MakeGif()
 	UploadToSlack()
+	RemoveAllFrames()
 	frameLoopMutex.Unlock()
 
-	http.Redirect(w, r, "/", 301)
+	http.Redirect(w, r, "/", 200)
 }
 
 func main() {
+	RemoveAllFrames()
+
 	// Start taking frames.
 	go CaptureLoop()
 
