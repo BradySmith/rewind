@@ -23,6 +23,7 @@ var (
 type FrameSizes []webcam.FrameSize
 
 const FRAMES_TO_KEEP = 100
+const ROTATE_IMAGE = false
 
 func (slice FrameSizes) Len() int {
 	return len(slice)
@@ -38,17 +39,45 @@ func (slice FrameSizes) Swap(i, j int) {
 	slice[i], slice[j] = slice[j], slice[i]
 }
 
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	var message = name + " took " + elapsed.String()
+	log.Printf("%s", message)
+	SendToSlack(message)
+}
+
 func AddHuffmanTable(filename string) {
 	cmd := exec.Command("/usr/bin/python", "/home/pi/rewind/mjpeg.py", filename)
 	cmd.Run()
 }
 
 func MakeGif() {
-	cmd := exec.Command("/usr/bin/convert", "-delay", "15x100", "/home/pi/rewind/frames/frame*.jpg", "-loop", "0", "/home/pi/rewind/output.gif")
+	defer timeTrack(time.Now(), "makeGif")
+	cmd := exec.Command("/usr/bin/convert", "-delay", "15x100", "-layers", "optimize", "/home/pi/rewind/frames/frame*.jpg", "-loop", "0", "/home/pi/rewind/output.gif")
 	cmd.Run()
 }
 
+func SendToSlack(message string) {
+	c1 := exec.Command("/bin/echo", message)
+	c2 := exec.Command("/usr/local/bin/slacker", "-c", "bot-log")
+
+	r, w := io.Pipe()
+	c1.Stdout = w
+	c2.Stdin = r
+
+	var b2 bytes.Buffer
+	c2.Stdout = &b2
+
+	c1.Start()
+	c2.Start()
+	c1.Wait()
+	w.Close()
+	c2.Wait()
+	io.Copy(os.Stdout, &b2)
+}
+
 func UploadToSlack() {
+	defer timeTrack(time.Now(), "uploadToSlack")
 	c1 := exec.Command("echo 'Uploading gif. Please hold.'")
 	c2 := exec.Command("/usr/local/bin/slacker", "-c", "intersection-gifs", "-f", "/home/pi/rewind/output.gif")
 
@@ -197,6 +226,7 @@ func interruptHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	SendToSlack("Starting Up.")
 	RemoveAllFrames()
 
 	// Start taking frames.
