@@ -2,13 +2,20 @@ import cv2
 import subprocess
 import os
 import os.path
+from PIL import Image
+from shutil import copyfile
+
 
 # With the current load ~7 frames a second.
 FRAMES_TO_KEEP_BEFORE = 50
 FRAMES_TO_KEEP_AFTER = 20
+LOG_CHANNEL = "bot-log"
+GIF_CHANNEL = "intersection-gifs"
 
 FRAME_LOOP = True
 FILE_LOCK = "/home/pi/rewind/loop.lock"
+PREVIEW_FILE = "/tmp/preview.jpg"
+TEMP_PREVIEW_FILE = "/tmp/tmp.jpg"
 
 
 def removeAllFilesInFolder(folder):
@@ -34,8 +41,11 @@ def getFramesLoop():
         except OSError:
             pass
 
-        getFrame(index, cap)
+        name = getFrame(index, cap)
         index += 1
+
+        if index % 10 == 0:
+            makePreview(name)
 
         # Reset index when the number gets too big.
         if index == 100000000:
@@ -45,7 +55,7 @@ def getFramesLoop():
             FRAME_LOOP = False
 
     # Take a few more frames.
-    print "Interrupt detected, taking the after frames."
+    broadcastToSlack("Gif requested, building now - please hold.")
     for i in range(index, index + FRAMES_TO_KEEP_AFTER):
         getFrame(i, cap)
 
@@ -54,15 +64,34 @@ def getFrame(index, cap):
     ret, frame = cap.read()
     name = "/home/pi/rewind/frames/frame%d.jpg" % index
     cv2.imwrite(name, frame)
+    return name
+
+
+def makePreview(name):
+    copyfile(name, TEMP_PREVIEW_FILE)
+
+    image = Image.open(TEMP_PREVIEW_FILE)
+    image = image.rotate(180)
+    image.save(PREVIEW_FILE)
+
+
+def logToSlack(message):
+    sendToSlack(message, LOG_CHANNEL)
+
+
+def broadcastToSlack(message):
+    sendToSlack(message, GIF_CHANNEL)
+
+
+def sendToSlack(message, channel):
+    executePipedShellCommand("echo " + message, "slacker -c " + channel)
 
 
 def makeGif():
-    print "Making gif"
-
     try:
         executeShellCommand(
             "convert -delay 15x100 /home/pi/rewind/frames/frame*.jpg -rotate 180 -loop 0 /home/pi/rewind/output.gif")
-        print "Finished making gif"
+        logToSlack("Finished making gif")
         return True
 
     except KeyboardInterrupt:
@@ -71,7 +100,7 @@ def makeGif():
 
 
 def postGifToSlack():
-    executePipedShellCommand("echo 'Uploading gif. Please hold.'", "slacker -c intersection-gifs -f /home/pi/rewind/output.gif")
+    executePipedShellCommand("echo Almost done! Uploading gif.", "slacker -c " + GIF_CHANNEL + " -f /home/pi/rewind/output.gif")
 
 
 def executeShellCommand(command):
@@ -85,14 +114,18 @@ def executePipedShellCommand(command1, command2):
     p1.stdout.close()  # Allow p1 to receive a SIGPIPE if p2 exits.
     output, err = p2.communicate()
 
+
 def removeLock():
+    logToSlack("Removing lock file")
     try:
         os.remove(FILE_LOCK)
     except OSError:
         pass
 
+
 if __name__ == '__main__':
     removeLock()
+    logToSlack("Starting up")
     while True:
         getFramesLoop()
         makeGif()

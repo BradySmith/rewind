@@ -1,15 +1,15 @@
-from flask import Flask, redirect
+from flask import Flask, redirect, render_template
 import cv2
 import subprocess
 
 FILE_LOCK = "/home/pi/rewind/loop.lock"
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path = "/tmp", static_folder = "/tmp")
 
 
 @app.route("/")
 def index():
-    return "Hello World!"
+    return render_template("index.html")
 
 
 @app.route("/gif")

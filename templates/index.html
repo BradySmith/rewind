@@ -1,0 +1,19 @@
+{% extends "layout.html" %}
+
+{% block title %}Welcome!{% endblock %}
+
+{% block content %}
+<img id="myimg" src="/tmp/preview.jpg">
+<p>See something interesting?</p>
+<a class="btn btn-primary" href="/gif">Snap a Gif!</a>
+{% endblock %}}
+
+{% block javascript %}
+<script>
+    $(document).ready(function () {
+        setInterval(function(){
+            $("#myimg").attr("src", "/tmp/preview.jpg?"+new Date().getTime());
+        },2000);
+    });
+</script>
+{% endblock %}
