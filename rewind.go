@@ -5,7 +5,6 @@ import (
 	"github.com/blackjack/webcam"
 	"os"
 	"sort"
-	"strconv"
 	"os/exec"
 	"bytes"
 	"io"
@@ -22,8 +21,11 @@ var (
 
 type FrameSizes []webcam.FrameSize
 
-const FRAMES_TO_KEEP = 100
-const ROTATE_IMAGE = false
+const LOG_CHANNEL = "bot-log"
+const GIF_CHANNEL = "intersection-gifs"
+const SECONDS_TO_WAIT_AFTER = 3
+const FRAMES_TO_KEEP = 50
+const ROTATE_IMAGE = true
 
 func (slice FrameSizes) Len() int {
 	return len(slice)
@@ -43,7 +45,7 @@ func timeTrack(start time.Time, name string) {
 	elapsed := time.Since(start)
 	var message = name + " took " + elapsed.String()
 	log.Printf("%s", message)
-	SendToSlack(message)
+	LogToSlack(message)
 }
 
 func AddHuffmanTable(filename string) {
@@ -53,13 +55,26 @@ func AddHuffmanTable(filename string) {
 
 func MakeGif() {
 	defer timeTrack(time.Now(), "makeGif")
-	cmd := exec.Command("/usr/bin/convert", "-delay", "15x100", "-layers", "optimize", "/home/pi/rewind/frames/frame*.jpg", "-loop", "0", "/home/pi/rewind/output.gif")
-	cmd.Run()
+	if (ROTATE_IMAGE) {
+		cmd := exec.Command("/usr/bin/convert", "-delay", "30x100", "-layers", "optimize", "/home/pi/rewind/frames/frame*.jpg", "-rotate", "180",  "-loop", "0", "/home/pi/rewind/output.gif")
+		cmd.Run()
+	} else {
+		cmd := exec.Command("/usr/bin/convert", "-delay", "30x100", "-layers", "optimize", "/home/pi/rewind/frames/frame*.jpg", "-loop", "0", "/home/pi/rewind/output.gif")
+		cmd.Run()
+	}
 }
 
-func SendToSlack(message string) {
+func BroadcastToSlack(message string) {
+	SendToSlack(message, GIF_CHANNEL)
+}
+
+func LogToSlack(message string) {
+	SendToSlack(message, LOG_CHANNEL)
+}
+
+func SendToSlack(message string, channel string) {
 	c1 := exec.Command("/bin/echo", message)
-	c2 := exec.Command("/usr/local/bin/slacker", "-c", "bot-log")
+	c2 := exec.Command("/usr/local/bin/slacker", "-c", channel)
 
 	r, w := io.Pipe()
 	c1.Stdout = w
@@ -79,7 +94,7 @@ func SendToSlack(message string) {
 func UploadToSlack() {
 	defer timeTrack(time.Now(), "uploadToSlack")
 	c1 := exec.Command("echo 'Uploading gif. Please hold.'")
-	c2 := exec.Command("/usr/local/bin/slacker", "-c", "intersection-gifs", "-f", "/home/pi/rewind/output.gif")
+	c2 := exec.Command("/usr/local/bin/slacker", "-c", GIF_CHANNEL, "-f", "/home/pi/rewind/output.gif")
 
 	r, w := io.Pipe()
 	c1.Stdout = w
@@ -140,9 +155,9 @@ func CaptureLoop() {
 	format := formats[formatIndex]
 	frames := FrameSizes(cam.GetSupportedFrameSizes(format))
 	sort.Sort(frames)
-	for i, value := range frames {
-		fmt.Fprintf(os.Stderr, "[%d] %s\n", i+1, value.GetString())
-	}
+	//for i, value := range frames {
+	//	fmt.Fprintf(os.Stderr, "[%d] %s\n", i+1, value.GetString())
+	//}
 	size := frames[4]
 
 	f, w, h, err := cam.SetImageFormat(format, uint32(size.MaxWidth), uint32(size.MaxHeight))
@@ -150,7 +165,7 @@ func CaptureLoop() {
 	if err != nil {
 		panic(err.Error())
 	} else {
-		fmt.Fprintf(os.Stderr, "Resulting image format: %s (%dx%d)\n", format_desc[f], w, h)
+		LogToSlack(fmt.Sprintf("Resulting image format: %s (%dx%d)\n", format_desc[f], w, h))
 	}
 
 	err = cam.StartStreaming()
@@ -176,9 +191,8 @@ func CaptureLoop() {
 		frame, err := cam.ReadFrame()
 		if len(frame) != 0 {
 			frameLoopMutex.Lock()
-
-			var newFileName = "/home/pi/rewind/frames/frame" + strconv.Itoa(i) + ".jpg"
-			var fileNameToRemove = "/home/pi/rewind/frames/frame" + strconv.Itoa(i - FRAMES_TO_KEEP) + ".jpg"
+			var newFileName = fmt.Sprintf("/home/pi/rewind/frames/frame%09d.jpg", i)
+			var fileNameToRemove = fmt.Sprintf("/home/pi/rewind/frames/frame%09d.jpg", i - FRAMES_TO_KEEP)
 
 			fo, err := os.Create(newFileName)
 			if err != nil {
@@ -189,11 +203,10 @@ func CaptureLoop() {
 				panic(err)
 			}
 
-			defer func() {
-				if err := fo.Close(); err != nil {
-					panic(err)
-				}
-			}()
+			closeErr := fo.Close();
+			if closeErr != nil {
+				panic(err)
+			}
 
 			os.Remove(fileNameToRemove)
 			frameLoopMutex.Unlock()
@@ -202,31 +215,38 @@ func CaptureLoop() {
 			i++
 
 			// Reset number when it gets too big.
-			if i > 100000000 {
+			if i > 999999990 {
 				i = 0
 			}
 
 		} else if err != nil {
 			panic(err.Error())
 		}
+
+		time.Sleep(300 * time.Millisecond)
 	}
 }
 
-func interruptHandler(w http.ResponseWriter, r *http.Request) {
-	time.Sleep(time.Second * 3)
+func interruptLoop() {
+	time.Sleep(time.Second * SECONDS_TO_WAIT_AFTER)
 
 	fmt.Println("/gif")
 	frameLoopMutex.Lock()
 	MakeGif()
 	UploadToSlack()
-	RemoveAllFrames()
-	frameLoopMutex.Unlock()
+	//RemoveAllFrames()
+	//frameLoopMutex.Unlock()
+}
+
+func interruptHandler(w http.ResponseWriter, r *http.Request) {
+	go interruptLoop()
+	BroadcastToSlack("Gif requested. Please hold.")
 
 	http.Redirect(w, r, "/", 200)
 }
 
 func main() {
-	SendToSlack("Starting Up.")
+	LogToSlack("Starting Up.")
 	RemoveAllFrames()
 
 	// Start taking frames.
