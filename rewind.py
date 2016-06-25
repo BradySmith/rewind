@@ -61,7 +61,7 @@ def makeGif():
 
     try:
         executeShellCommand(
-            "convert -delay 15x100 /home/pi/rewind/frames/frame*.jpg -loop 0 /home/pi/rewind/output.gif")
+            "convert -delay 15x100 /home/pi/rewind/frames/frame*.jpg -rotate 180 -loop 0 /home/pi/rewind/output.gif")
         print "Finished making gif"
         return True
 
