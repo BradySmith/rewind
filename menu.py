@@ -4,7 +4,7 @@ import subprocess
 
 FILE_LOCK = "/home/pi/rewind/loop.lock"
 
-app = Flask(__name__, static_url_path = "/tmp", static_folder = "/tmp")
+app = Flask(__name__, static_url_path = "/home/pi/rewind/static", static_folder = "/home/pi/rewind/static")
 
 
 @app.route("/")
@@ -17,16 +17,6 @@ def takeGif():
     open(FILE_LOCK, 'w')
     return redirect("/", code=302)
 
-
-@app.route("/test")
-def testImage():
-    cap = cv2.VideoCapture(0)
-    ret, frame = cap.read()
-    cv2.imwrite("/home/pi/rewind/test.jpg", frame)
-
-    executePipedShellCommand("echo 'Uploading test image. Please hold.'", "slacker -c intersection-gifs -f /home/pi/rewind/test.jpg")
-
-    return redirect("/", code=302)
 
 def executePipedShellCommand(command1, command2):
     p1 = subprocess.Popen(command1.split(), stdout=subprocess.PIPE)

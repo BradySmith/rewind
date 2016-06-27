@@ -3,7 +3,7 @@
 {% block title %}Welcome!{% endblock %}
 
 {% block content %}
-<img id="myimg" src="/tmp/preview.jpg">
+<img id="myimg" src="/home/pi/rewind/static/preview.jpg">
 <p>See something interesting?</p>
 <a class="btn btn-primary" href="/gif">Snap a Gif!</a>
 {% endblock %}}
@@ -12,7 +12,7 @@
 <script>
     $(document).ready(function () {
         setInterval(function(){
-            $("#myimg").attr("src", "/tmp/preview.jpg?"+new Date().getTime());
+            $("#myimg").attr("src", "/home/pi/rewind/static/preview.jpg?"+new Date().getTime());
         },2000);
     });
 </script>

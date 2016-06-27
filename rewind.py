@@ -14,8 +14,8 @@ GIF_CHANNEL = "intersection-gifs"
 
 FRAME_LOOP = True
 FILE_LOCK = "/home/pi/rewind/loop.lock"
-PREVIEW_FILE = "/tmp/preview.jpg"
-TEMP_PREVIEW_FILE = "/tmp/tmp.jpg"
+PREVIEW_FILE = "/home/pi/rewind/static/preview.jpg"
+TEMP_PREVIEW_FILE = "/home/pi/rewind/static/tmp.jpg"
 
 
 def removeAllFilesInFolder(folder):
