@@ -8,7 +8,7 @@ from shutil import copyfile
 
 # With the current load ~7 frames a second.
 FRAMES_TO_KEEP_BEFORE = 50
-FRAMES_TO_KEEP_AFTER = 20
+FRAMES_TO_KEEP_AFTER = 50
 LOG_CHANNEL = "bot-log"
 GIF_CHANNEL = "intersection-gifs"
 
@@ -44,7 +44,7 @@ def getFramesLoop():
         name = getFrame(index, cap)
         index += 1
 
-        if index % 10 == 0:
+        if index % 500 == 0:
             makePreview(name)
 
         # Reset index when the number gets too big.
@@ -70,6 +70,7 @@ def getFrame(index, cap):
 def makePreview(name):
     copyfile(name, TEMP_PREVIEW_FILE)
 
+    # wrap in try catch
     image = Image.open(TEMP_PREVIEW_FILE)
     image = image.rotate(180)
     image.save(PREVIEW_FILE)
