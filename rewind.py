@@ -87,7 +87,6 @@ def broadcastToSlack(message):
 def sendToSlack(message, channel):
     executePipedShellCommand("echo " + message, "slacker -c " + channel)
 
-
 def makeGif():
     try:
         executeShellCommand(
@@ -99,10 +98,19 @@ def makeGif():
         print "Interrupt detected. Exiting"
         return False
 
+def convertMP4():
+    try:
+        executeShellCommand(
+            "./bin/ffmpeg -i /home/pi/rewind/output.gif -movflags faststart -pix_fmt yuv420p -vf \"scale=trunc(iw/2)*2:trunc(ih/2)*2\" /home/pi/rewind/output.mp4")
+        logToSlack("Finished making mp4")
+        return True
+
+    except KeyboardInterrupt:
+        print "Interrupt detected. Exiting"
+        return False
 
 def postGifToSlack():
-    executePipedShellCommand("echo Almost done! Uploading gif.", "slacker -c " + GIF_CHANNEL + " -f /home/pi/rewind/output.gif")
-
+    executePipedShellCommand("echo Almost done! Uploading gif.", "slacker -c " + GIF_CHANNEL + " -f /home/pi/rewind/output.mp4")
 
 def executeShellCommand(command):
     process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
@@ -130,5 +138,6 @@ if __name__ == '__main__':
     while True:
         getFramesLoop()
         makeGif()
+        convertMP4()
         postGifToSlack()
         removeLock()
