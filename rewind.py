@@ -101,7 +101,7 @@ def makeGif():
 def convertMP4():
     try:
         executeShellCommand(
-            "ffmpeg -i /home/pi/rewind/output.gif -movflags faststart -pix_fmt yuv420p -vf \"scale=trunc(iw/2)*2:trunc(ih/2)*2\" /home/pi/rewind/output.mp4")
+            "./bin/ffmpeg -i /home/pi/rewind/output.gif -movflags faststart -pix_fmt yuv420p -vf \"scale=trunc(iw/2)*2:trunc(ih/2)*2\" /home/pi/rewind/output.mp4")
         logToSlack("Finished making mp4")
         return True
 
