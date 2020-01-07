@@ -6,11 +6,11 @@ from PIL import Image
 from shutil import copyfile
 
 
-# With the current load ~7 frames a second.
-FRAMES_TO_KEEP_BEFORE = 50
-FRAMES_TO_KEEP_AFTER = 50
+# With the current load ~18 frames a second.
+FRAMES_TO_KEEP_BEFORE = 150
+FRAMES_TO_KEEP_AFTER = 150
 LOG_CHANNEL = "bot-log"
-GIF_CHANNEL = "intersection-gifs"
+GIF_CHANNEL = "test-public"
 
 FRAME_LOOP = True
 FILE_LOCK = "/home/pi/rewind/loop.lock"
@@ -55,7 +55,7 @@ def getFramesLoop():
             FRAME_LOOP = False
 
     # Take a few more frames.
-    broadcastToSlack("Gif requested, building now - please hold.")
+    broadcastToSlack("MP4 requested, building now - please hold.")
     for i in range(index, index + FRAMES_TO_KEEP_AFTER):
         getFrame(i, cap)
 
@@ -87,42 +87,37 @@ def broadcastToSlack(message):
 def sendToSlack(message, channel):
     executePipedShellCommand("echo " + message, "slacker -c " + channel)
 
-def makeGif():
+def makeMP4():
     try:
-        executeShellCommand(
-            "convert -delay 15x100 /home/pi/rewind/frames/frame*.jpg -rotate 180 -loop 0 /home/pi/rewind/output.gif")
-        logToSlack("Finished making gif")
+        os.remove("/home/pi/rewind/output.mp4")
+    except OSError:
+        pass
+
+    try:
+        command = "/usr/local/bin/ffmpeg -framerate 18 -pattern_type glob -i '/home/pi/rewind/frames/*.jpg' -c:v libx264 -r 30 -pix_fmt yuv420p -vf 'transpose=2,transpose=2' /home/pi/rewind/output.mp4"
+        output,error  = subprocess.Popen(
+                                    command, universal_newlines=True, shell=True,
+                                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+        print(error)
+        logToSlack("Finished making MP4")
         return True
 
     except KeyboardInterrupt:
         print "Interrupt detected. Exiting"
         return False
 
-def convertMP4():
-    try:
-        executeShellCommand(
-            "./bin/ffmpeg -i /home/pi/rewind/output.gif -movflags faststart -pix_fmt yuv420p -vf \"scale=trunc(iw/2)*2:trunc(ih/2)*2\" /home/pi/rewind/output.mp4")
-        logToSlack("Finished making mp4")
-        return True
-
-    except KeyboardInterrupt:
-        print "Interrupt detected. Exiting"
-        return False
-
-def postGifToSlack():
-    executePipedShellCommand("echo Almost done! Uploading gif.", "slacker -c " + GIF_CHANNEL + " -f /home/pi/rewind/output.mp4")
+def postFileToSlack():
+    executePipedShellCommand("echo Almost done! Uploading MP4.", "slacker -c " + GIF_CHANNEL + " -f /home/pi/rewind/output.mp4")
 
 def executeShellCommand(command):
     process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
     output = process.communicate()[0]
-
 
 def executePipedShellCommand(command1, command2):
     p1 = subprocess.Popen(command1.split(), stdout=subprocess.PIPE)
     p2 = subprocess.Popen(command2.split(), stdin=p1.stdout, stdout=subprocess.PIPE)
     p1.stdout.close()  # Allow p1 to receive a SIGPIPE if p2 exits.
     output, err = p2.communicate()
-
 
 def removeLock():
     logToSlack("Removing lock file")
@@ -131,13 +126,11 @@ def removeLock():
     except OSError:
         pass
 
-
 if __name__ == '__main__':
     removeLock()
     logToSlack("Starting up")
     while True:
         getFramesLoop()
-        makeGif()
-        convertMP4()
-        postGifToSlack()
+        makeMP4()
+        postFileToSlack()
         removeLock()
